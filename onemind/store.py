@@ -1,10 +1,10 @@
-"""OneMind core — memory storage, retrieval, and lifecycle."""
+"""Onemind core — memory storage, retrieval, and lifecycle."""
 from __future__ import annotations
 
 import sqlite3
 import time
-import hashlib
-from typing import Any, Iterable
+import uuid
+from typing import Any
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
@@ -32,8 +32,9 @@ class Memory:
             self.updated_at = self.created_at
 
     def _make_id(self) -> str:
-        h = hashlib.sha256(self.content.encode()).hexdigest()[:12]
-        return h
+        # UUID ensures no silent overwrites when same content is stored
+        # in different scopes or with different tags
+        return str(uuid.uuid4())[:16]
 
     @property
     def is_expired(self) -> bool:

@@ -1,12 +1,12 @@
-"""OneMind — shared memory for AI agents (renamed from AgentMemory)."""
+"""Onemind — shared memory for AI agents."""
 from .store import MemoryStore, Memory
-from .sdk import OneMind, remember, recall, forget, stats
+from .sdk import Onemind, remember, recall, forget, stats
 
 __version__ = "0.2.0"
 __all__ = [
     "MemoryStore",
     "Memory",
-    "OneMind",
+    "Onemind",
     "remember",
     "recall",
     "forget",

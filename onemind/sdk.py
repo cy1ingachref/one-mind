@@ -1,32 +1,27 @@
-"""OneMind SDK — Python client for the memory daemon."""
+"""Onemind SDK — Python client for the memory daemon."""
 from __future__ import annotations
 
 import os
-import json
-import time
 from typing import Any
 from pathlib import Path
 
 import requests
-from rich.console import Console
 
 from .store import Memory, MemoryStore
-
-console = Console()
 
 # Default daemon connection
 DEFAULT_HOST = os.environ.get("ONEMIND_HOST", "127.0.0.1")
 DEFAULT_PORT = int(os.environ.get("ONEMIND_PORT", "7777"))
-DEFAULT_DB = os.environ.get("ONEMIND_DB", "~/.one_mind/default.db")
+DEFAULT_DB = os.environ.get("ONEMIND_DB", "~/.onemind/default.db")
 
 
-class OneMind:
-    """Main SDK class for interacting with OneMind.
+class Onemind:
+    """Main SDK class for interacting with Onemind.
 
     Usage:
-        from one_mind import OneMind
+        from onemind import Onemind
 
-        mem = OneMind()
+        mem = Onemind()
         mem.remember("Auth uses JWT with RS256", tags=["security", "auth"])
         results = mem.recall("authentication strategy")
     """
@@ -220,13 +215,13 @@ class OneMind:
 
 # ─── Convenience functions ───────────────────────────────────────────────────
 
-_default_memory: OneMind | None = None
+_default_memory: Onemind | None = None
 
 
-def _get_default() -> OneMind:
+def _get_default() -> Onemind:
     global _default_memory
     if _default_memory is None:
-        _default_memory = OneMind()
+        _default_memory = Onemind()
     return _default_memory
 
 

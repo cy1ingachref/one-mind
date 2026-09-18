@@ -1,4 +1,4 @@
-"""OneMind CLI — command-line interface."""
+"""Onemind CLI — command-line interface."""
 from __future__ import annotations
 
 import os
@@ -10,15 +10,15 @@ from rich.console import Console
 from rich.table import Table
 
 from . import __version__
-from .sdk import OneMind
+from .sdk import Onemind
 
 console = Console()
 
 
 @click.group()
-@click.version_option(version=__version__, prog_name="one_mind")
+@click.version_option(version=__version__, prog_name="onemind")
 def cli():
-    """OneMind — shared memory layer for AI agents.
+    """Onemind — shared memory layer for AI agents.
 
     Store and recall facts across sessions, across tools, across time.
     """
@@ -37,9 +37,9 @@ def remember(content: str, tags: tuple[str, ...], scope: str, agent: str, ttl: f
     """Store a fact in memory.
 
     Example:
-        one_mind remember "Auth uses JWT with RS256" -t security -t auth -s project/myapp
+        onemind remember "Auth uses JWT with RS256" -t security -t auth -s project/myapp
     """
-    mem = OneMind(host=host, port=port)
+    mem = Onemind(host=host, port=port)
     memory = mem.remember(
         content,
         tags=list(tags),
@@ -63,10 +63,10 @@ def recall(query: str, scope: str | None, tags: tuple[str, ...], limit: int, hos
     """Search memories.
 
     Example:
-        one_mind recall "authentication"
-        one_mind recall -s project/myapp --tags security
+        onemind recall "authentication"
+        onemind recall -s project/myapp --tags security
     """
-    mem = OneMind(host=host, port=port)
+    mem = Onemind(host=host, port=port)
     results = mem.recall(
         query,
         scope=scope,
@@ -104,9 +104,9 @@ def forget(memory_id: str, host: str | None, port: int | None):
     """Delete a memory by id.
 
     Example:
-        one_mind forget abc123def456
+        onemind forget abc123def456
     """
-    mem = OneMind(host=host, port=port)
+    mem = Onemind(host=host, port=port)
     if mem.forget(memory_id):
         console.print(f"[green]Forgot:[/green] {memory_id}")
     else:
@@ -118,7 +118,7 @@ def forget(memory_id: str, host: str | None, port: int | None):
 @click.option("--port", type=int, default=None, help="Daemon port")
 def stats(host: str | None, port: int | None):
     """Show memory statistics."""
-    mem = OneMind(host=host, port=port)
+    mem = Onemind(host=host, port=port)
     data = mem.stats()
     console.print(f"[bold]Total memories:[/bold] {data['total']}")
     scopes = data.get("scopes", {})
@@ -136,7 +136,7 @@ def stats(host: str | None, port: int | None):
 @click.option("--port", type=int, default=None, help="Daemon port")
 def list_all(host: str | None, port: int | None):
     """List all memories."""
-    mem = OneMind(host=host, port=port)
+    mem = Onemind(host=host, port=port)
     results = mem.recall(limit=100)
     for m in results:
         console.print(f"[cyan]{m.id}[/cyan] {m.content[:60]}")
@@ -153,9 +153,9 @@ def serve(host: str | None, port: int | None, db: str | None):
     daemon = MemoryDaemon(
         host=host or "127.0.0.1",
         port=port or 7777,
-        db_path=db or "~/.one_mind/default.db",
+        db_path=db or "~/.onemind/default.db",
     )
-    console.print(f"[green]OneMind daemon starting on {daemon.host}:{daemon.port}[/green]")
+    console.print(f"[green]Onemind daemon starting on {daemon.host}:{daemon.port}[/green]")
     console.print(f"[dim]Database: {daemon.db_path}[/dim]")
     console.print("[dim]Press Ctrl+C to stop[/dim]")
     try:

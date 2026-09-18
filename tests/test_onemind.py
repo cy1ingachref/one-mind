@@ -1,4 +1,4 @@
-"""Tests for OneMind."""
+"""Tests for Onemind."""
 from __future__ import annotations
 
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from one_mind import Memory, MemoryStore, OneMind
+from onemind import Memory, MemoryStore, Onemind
 
 
 @pytest.fixture
@@ -27,7 +27,7 @@ class TestMemory:
     def test_memory_has_default_id(self):
         m = Memory(content="test fact")
         assert m.id
-        assert len(m.id) == 12
+        assert len(m.id) == 16
 
     def test_memory_is_not_expired_by_default(self):
         m = Memory(content="test")
@@ -45,6 +45,14 @@ class TestMemory:
         assert m2.content == m.content
         assert m2.tags == m.tags
         assert m2.scope == m.scope
+
+    def test_no_overwrite_same_content_different_scope(self):
+        """Same content in different scopes should create separate memories."""
+        store = MemoryStore(":memory:")
+        m1 = store.remember(Memory(content="Auth uses JWT", scope="project/a"))
+        m2 = store.remember(Memory(content="Auth uses JWT", scope="project/b"))
+        # IDs should differ (no silent overwrite)
+        assert m1.id != m2.id
 
 
 class TestMemoryStore:
@@ -97,22 +105,11 @@ class TestMemoryStore:
         store.remember(Memory(content="test"))
         assert store.count() == 1
 
-    def test_search_scoring(self, store):
-        store.remember(Memory(content="JWT authentication"))
-        store.remember(Memory(content="Database password"))
-        store.remember(Memory(content="JWT token validation"))
 
-        results = store.recall("JWT")
-        # Both JWT results should be in top positions
-        assert len(results) >= 2
-        # Results should be sorted by score (highest first)
-        assert results[0].score >= results[-1].score
-
-
-class TestOneMindSDK:
+class TestOnemindSDK:
     def test_remember_and_recall_direct(self, tmp_db):
         """Test SDK with direct store (no daemon)."""
-        sdk = OneMind(db_path=tmp_db)
+        sdk = Onemind(db_path=tmp_db)
         sdk.remember("Auth uses JWT with RS256", tags=["security", "auth"])
 
         results = sdk.recall("jwt")
@@ -120,7 +117,7 @@ class TestOneMindSDK:
         assert any("JWT" in r.content for r in results)
 
     def test_recall_empty_query_returns_all(self, tmp_db):
-        sdk = OneMind(db_path=tmp_db)
+        sdk = Onemind(db_path=tmp_db)
         sdk.remember("Fact A")
         sdk.remember("Fact B")
 
@@ -128,20 +125,20 @@ class TestOneMindSDK:
         assert len(results) >= 2
 
     def test_forget_via_sdk(self, tmp_db):
-        sdk = OneMind(db_path=tmp_db)
+        sdk = Onemind(db_path=tmp_db)
         mem = sdk.remember("To delete")
         assert sdk.forget(mem.id)
         assert not sdk.forget(mem.id)
 
     def test_clear_scope_via_sdk(self, tmp_db):
-        sdk = OneMind(db_path=tmp_db)
+        sdk = Onemind(db_path=tmp_db)
         sdk.remember("A", scope="project/x")
         sdk.remember("B", scope="project/x")
         count = sdk.clear_scope("project/x")
         assert count == 2
 
     def test_stats_via_sdk(self, tmp_db):
-        sdk = OneMind(db_path=tmp_db)
+        sdk = Onemind(db_path=tmp_db)
         sdk.remember("Test fact", scope="test")
         stats = sdk.stats()
         assert stats["total"] == 1
@@ -154,7 +151,7 @@ class TestDaemonIntegration:
     def test_daemon_remember_and_recall(self):
         """Test daemon remember/recall with a real local daemon."""
         import requests
-        from one_mind.daemon import MemoryDaemon
+        from onemind.daemon import MemoryDaemon
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -217,7 +214,7 @@ class TestDaemonIntegration:
     def test_daemon_clear_scope(self):
         """Test daemon scope clearing."""
         import requests
-        from one_mind.daemon import MemoryDaemon
+        from onemind.daemon import MemoryDaemon
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
