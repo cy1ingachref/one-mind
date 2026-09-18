@@ -140,14 +140,14 @@ class MemoryStore:
         sql = "SELECT * FROM memories"
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
-        if not include_expired:
-            sql += " WHERE" if not conditions else " AND"
-            sql += " (ttl_seconds = 0 OR (strftime('%s', 'now') - updated_at) < ttl_seconds)"
         sql += " ORDER BY updated_at DESC LIMIT ?"
         params.append(limit)
 
         rows = self._conn.execute(sql, params).fetchall()
         memories = [Memory.from_dict(dict(row)) for row in rows]
+
+        # Filter expired memories in Python (consistent with time.time())
+        memories = [m for m in memories if not m.is_expired]
 
         # Simple relevance scoring (exact match > substring > tag match)
         for mem in memories:

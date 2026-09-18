@@ -1,10 +1,10 @@
-# Onemind
+# OneMind
 
 **Shared memory layer for AI agents. Remember across sessions, across tools, across time.**
 
-[![Tests](https://img.shields.io/badge/tests-19%20passed-brightgreen)](https://github.com/cy1ingachref/onemind)
+[![Tests](https://img.shields.io/badge/tests-19%20passed-brightgreen)](https://github.com/cy1ingachref/one-mind)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/cy1ingachref/onemind/blob/main/LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/cy1ingachref/one-mind/blob/main/LICENSE)
 
 ---
 
@@ -12,7 +12,7 @@
 
 Every AI agent is an island. Session ends, context is gone. Two agents on the same project? Neither knows what the other learned.
 
-Onemind solves this: a shared memory pool that any agent can read from or write to — via Python SDK, CLI, or MCP.
+OneMind solves this: a shared memory pool that any agent can read from or write to — via Python SDK, CLI, or MCP.
 
 ---
 
@@ -51,7 +51,7 @@ print(results[0].content)  # "Auth uses JWT with RS256"
          │                       │
          ▼                       ▼
 ┌─────────────────────────────────────────┐
-│           Onemind Daemon                │
+│           OneMind Daemon                │
 │         (SQLite + HTTP API)             │
 │                                         │
 │  remember() → Store fact                │
@@ -71,9 +71,11 @@ The SDK auto-detects a running daemon. If none is running, it silently falls bac
 - **Scoped** — Isolate by project, user, agent, or global
 - **Taggable** — Categorize facts for easy retrieval
 - **TTL** — Auto-expire stale memories
-- **Daemon** — Run as a local server for any tool to use
+- **Daemon** — Run as a local server (127.0.0.1 only, no auth) for any tool to use
 - **MCP** — Built-in MCP server for Claude Code/Cursor integration
 - **Zero deps** — No vector DB, no API keys, no cloud
+
+> **Security note:** The daemon binds to 127.0.0.1 by default. Do not expose it to the network without adding authentication.
 
 ---
 
@@ -107,9 +109,9 @@ onemind list
 ## Python SDK
 
 ```python
-from onemind import Onemind
+from onemind import OneMind
 
-mem = Onemind()
+mem = OneMind()
 
 # Remember
 mem.remember("Auth uses JWT with RS256", tags=["security", "auth"], scope="project/myapp")
@@ -133,6 +135,19 @@ print(mem.stats())
 ```bash
 # Run MCP server on stdio
 python -m onemind.mcp
+```
+
+Then add to your MCP config (e.g., `~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "onemind": {
+      "command": "python",
+      "args": ["-m", "onemind.mcp"]
+    }
+  }
+}
 ```
 
 Then add to your MCP config (e.g., `~/.claude/settings.json`):

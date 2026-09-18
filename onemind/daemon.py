@@ -1,4 +1,4 @@
-"""Onemind daemon — lightweight local server for memory storage."""
+"""OneMind daemon — lightweight local server for memory storage."""
 from __future__ import annotations
 
 import json

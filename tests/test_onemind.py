@@ -1,4 +1,4 @@
-"""Tests for Onemind."""
+"""Tests for OneMind."""
 from __future__ import annotations
 
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from onemind import Memory, MemoryStore, Onemind
+from onemind import Memory, MemoryStore, OneMind
 
 
 @pytest.fixture
@@ -106,10 +106,10 @@ class TestMemoryStore:
         assert store.count() == 1
 
 
-class TestOnemindSDK:
+class TestOneMindSDK:
     def test_remember_and_recall_direct(self, tmp_db):
         """Test SDK with direct store (no daemon)."""
-        sdk = Onemind(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         sdk.remember("Auth uses JWT with RS256", tags=["security", "auth"])
 
         results = sdk.recall("jwt")
@@ -117,7 +117,7 @@ class TestOnemindSDK:
         assert any("JWT" in r.content for r in results)
 
     def test_recall_empty_query_returns_all(self, tmp_db):
-        sdk = Onemind(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         sdk.remember("Fact A")
         sdk.remember("Fact B")
 
@@ -125,20 +125,20 @@ class TestOnemindSDK:
         assert len(results) >= 2
 
     def test_forget_via_sdk(self, tmp_db):
-        sdk = Onemind(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         mem = sdk.remember("To delete")
         assert sdk.forget(mem.id)
         assert not sdk.forget(mem.id)
 
     def test_clear_scope_via_sdk(self, tmp_db):
-        sdk = Onemind(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         sdk.remember("A", scope="project/x")
         sdk.remember("B", scope="project/x")
         count = sdk.clear_scope("project/x")
         assert count == 2
 
     def test_stats_via_sdk(self, tmp_db):
-        sdk = Onemind(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         sdk.remember("Test fact", scope="test")
         stats = sdk.stats()
         assert stats["total"] == 1

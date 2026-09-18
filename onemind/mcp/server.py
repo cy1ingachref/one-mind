@@ -1,16 +1,16 @@
-"""Onemind MCP server — expose memory to Claude Code, Cursor, and any MCP-compatible tool."""
+"""OneMind MCP server — expose memory to Claude Code, Cursor, and any MCP-compatible tool."""
 from __future__ import annotations
 
 import sys
 import json
 from typing import Any
 
-from onemind.sdk import Onemind
+from onemind.sdk import OneMind
 
 
 def main():
     """Run the MCP server on stdio."""
-    mem = Onemind()
+    mem = OneMind()
 
     # Read JSON-RPC messages from stdin
     for line in sys.stdin:
@@ -28,9 +28,11 @@ def main():
         msg_id = msg.get("id")
 
         # Handle initialize handshake (required by MCP spec)
+        # Echo the client's requested protocol version for compatibility
         if method == "initialize":
+            client_version = params.get("protocolVersion", "2024-11-05")
             result = {
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": client_version,
                 "capabilities": {
                     "tools": {}
                 },
@@ -43,6 +45,9 @@ def main():
 
         elif method == "notifications/initialized":
             pass  # No response needed for notifications
+
+        elif method == "ping":
+            _send_response(msg_id, {})
 
         elif method == "tools/list":
             result = {
