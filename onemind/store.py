@@ -147,7 +147,8 @@ class MemoryStore:
         memories = [Memory.from_dict(dict(row)) for row in rows]
 
         # Filter expired memories in Python (consistent with time.time())
-        memories = [m for m in memories if not m.is_expired]
+        if not include_expired:
+            memories = [m for m in memories if not m.is_expired]
 
         # Simple relevance scoring (exact match > substring > tag match)
         for mem in memories:

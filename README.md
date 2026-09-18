@@ -186,7 +186,11 @@ onemind/
 
 ---
 
-## Running Tests
+## Known Limitations
+
+- **Single-threaded daemon**: The daemon processes one request at a time. Suitable for localhost use with few agents, but not for concurrent multi-agent production workloads.
+- **No daemon authentication**: Binds to 127.0.0.1 with no auth token. Do not expose to the network.
+- **Recall quality**: Uses word-overlap scoring (not embeddings). Good enough for factual lookup, not for semantic search at scale.
 
 ```bash
 pip install -e ".[dev]"

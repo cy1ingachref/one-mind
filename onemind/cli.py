@@ -1,10 +1,6 @@
 """OneMind CLI — command-line interface."""
 from __future__ import annotations
 
-import os
-import sys
-from pathlib import Path
-
 import click
 from rich.console import Console
 from rich.table import Table
@@ -157,6 +153,7 @@ def serve(host: str | None, port: int | None, db: str | None):
     )
     console.print(f"[green]OneMind daemon starting on {daemon.host}:{daemon.port}[/green]")
     console.print(f"[dim]Database: {daemon.db_path}[/dim]")
+    console.print("[dim]Single-threaded — suitable for localhost use[/dim]")
     console.print("[dim]Press Ctrl+C to stop[/dim]")
     try:
         daemon.start(blocking=True)

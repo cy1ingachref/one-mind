@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "onemind"
-version = "0.2.0"
+version = "0.3.0"
 description = "Shared memory layer for AI agents. Remember across sessions, across tools, across time."
 readme = "README.md"
 license = {text = "MIT"}
