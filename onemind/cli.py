@@ -1,6 +1,8 @@
 """OneMind CLI — command-line interface."""
 from __future__ import annotations
 
+import os
+
 import click
 from rich.console import Console
 from rich.table import Table
@@ -37,7 +39,8 @@ def remember(content: str, tags: tuple[str, ...], scope: str, agent: str, ttl: f
     Example:
         onemind remember "Auth uses JWT with RS256" -t security -t auth -s project/myapp
     """
-    mem = OneMind(host=host, port=port)
+    db_path = os.environ.get("ONEMIND_DB")
+    mem = OneMind(host=host, port=port, db_path=db_path)
     memory = mem.remember(
         content,
         tags=list(tags),
@@ -64,7 +67,8 @@ def recall(query: str, scope: str | None, tags: tuple[str, ...], limit: int, hos
         onemind recall "JWT"
         onemind recall -s project/myapp --tags security
     """
-    mem = OneMind(host=host, port=port)
+    db_path = os.environ.get("ONEMIND_DB")
+    mem = OneMind(host=host, port=port, db_path=db_path)
     results = mem.recall(
         query,
         scope=scope,
@@ -104,7 +108,8 @@ def forget(memory_id: str, host: str | None, port: int | None):
     Example:
         onemind forget abc123def456
     """
-    mem = OneMind(host=host, port=port)
+    db_path = os.environ.get("ONEMIND_DB")
+    mem = OneMind(host=host, port=port, db_path=db_path)
     if mem.forget(memory_id):
         console.print(f"[green]Forgot:[/green] {memory_id}")
     else:
@@ -116,7 +121,8 @@ def forget(memory_id: str, host: str | None, port: int | None):
 @click.option("--port", type=int, default=None, help="Daemon port")
 def stats(host: str | None, port: int | None):
     """Show memory statistics."""
-    mem = OneMind(host=host, port=port)
+    db_path = os.environ.get("ONEMIND_DB")
+    mem = OneMind(host=host, port=port, db_path=db_path)
     data = mem.stats()
     console.print(f"[bold]Total memories:[/bold] {data['total']}")
     scopes = data.get("scopes", {})
@@ -134,7 +140,8 @@ def stats(host: str | None, port: int | None):
 @click.option("--port", type=int, default=None, help="Daemon port")
 def list_memories(host: str | None, port: int | None):
     """List all memories."""
-    mem = OneMind(host=host, port=port)
+    db_path = os.environ.get("ONEMIND_DB")
+    mem = OneMind(host=host, port=port, db_path=db_path)
     results = mem.recall(limit=100)
     for m in results:
         console.print(f"[cyan]{m.id}[/cyan] {m.content[:60]}")
@@ -143,15 +150,16 @@ def list_memories(host: str | None, port: int | None):
 @cli.command()
 @click.option("--host", default=None, help="Daemon host")
 @click.option("--port", type=int, default=None, help="Daemon port")
-@click.option("--db", default=None, help="Database path")
+@click.option("--db", default=None, help="Database path (default: $ONEMIND_DB or ~/.onemind/default.db)")
 def serve(host: str | None, port: int | None, db: str | None):
     """Start the memory daemon."""
     from .daemon import MemoryDaemon
 
+    db_path = db or os.environ.get("ONEMIND_DB", "~/.onemind/default.db")
     daemon = MemoryDaemon(
         host=host or "127.0.0.1",
         port=port or 7777,
-        db_path=db or "~/.onemind/default.db",
+        db_path=db_path,
     )
     console.print(f"[green]OneMind daemon starting on {daemon.host}:{daemon.port}[/green]")
     console.print(f"[dim]Database: {daemon.db_path}[/dim]")

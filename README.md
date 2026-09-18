@@ -35,9 +35,11 @@ from onemind import remember, recall
 
 remember("Auth uses JWT with RS256", tags=["security", "auth"], scope="project/myapp")
 # ... hours later, different session, different tool
-results = recall("JWT")  # keyword search
-for m in results:
-    print(f"[{m.score:.1f}] {m.content}")
+results = recall("JWT")  # keyword search (substring match)
+if results:
+    print(f"[{results[0].score:.1f}] {results[0].content}")
+else:
+    print("No matching memories found")
 ```
 
 > **Note:** Search is **substring + word-overlap matching** (not semantic/embedding). Use keywords that appear in the stored content or tags for best results. For semantic search, consider embedding-based alternatives like ChromaDB or Pinecone.
@@ -123,8 +125,11 @@ mem.remember("Auth uses JWT with RS256", tags=["security", "auth"], scope="proje
 
 # Recall (substring matching)
 results = mem.recall("JWT", limit=5)
-for m in results:
-    print(f"[{m.score:.1f}] {m.content}")
+if results:
+    for m in results:
+        print(f"[{m.score:.1f}] {m.content}")
+else:
+    print("No matching memories found")
 
 # Forget
 mem.forget(memory_id)
