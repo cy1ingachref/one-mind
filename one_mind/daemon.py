@@ -1,4 +1,4 @@
-"""AgentMemory daemon — lightweight local server for memory storage."""
+"""OneMind daemon — lightweight local server for memory storage."""
 from __future__ import annotations
 
 import json
@@ -128,7 +128,7 @@ class MemoryHTTPHandler(http.server.BaseHTTPRequestHandler):
 class MemoryDaemon:
     """HTTP daemon for memory storage."""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 7777, db_path: str | Path = "~/.agentmemory/default.db"):
+    def __init__(self, host: str = "127.0.0.1", port: int = 7777, db_path: str | Path = "~/.one_mind/default.db"):
         self.host = host
         self.port = port
         self.db_path = Path(db_path).expanduser()

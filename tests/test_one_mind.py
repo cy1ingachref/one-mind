@@ -1,4 +1,4 @@
-"""Tests for AgentMemory."""
+"""Tests for OneMind."""
 from __future__ import annotations
 
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from agentmemory import Memory, MemoryStore, AgentMemory
+from one_mind import Memory, MemoryStore, OneMind
 
 
 @pytest.fixture
@@ -109,10 +109,10 @@ class TestMemoryStore:
         assert results[0].score >= results[-1].score
 
 
-class TestAgentMemorySDK:
+class TestOneMindSDK:
     def test_remember_and_recall_direct(self, tmp_db):
         """Test SDK with direct store (no daemon)."""
-        sdk = AgentMemory(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         sdk.remember("Auth uses JWT with RS256", tags=["security", "auth"])
 
         results = sdk.recall("jwt")
@@ -120,7 +120,7 @@ class TestAgentMemorySDK:
         assert any("JWT" in r.content for r in results)
 
     def test_recall_empty_query_returns_all(self, tmp_db):
-        sdk = AgentMemory(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         sdk.remember("Fact A")
         sdk.remember("Fact B")
 
@@ -128,20 +128,20 @@ class TestAgentMemorySDK:
         assert len(results) >= 2
 
     def test_forget_via_sdk(self, tmp_db):
-        sdk = AgentMemory(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         mem = sdk.remember("To delete")
         assert sdk.forget(mem.id)
         assert not sdk.forget(mem.id)
 
     def test_clear_scope_via_sdk(self, tmp_db):
-        sdk = AgentMemory(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         sdk.remember("A", scope="project/x")
         sdk.remember("B", scope="project/x")
         count = sdk.clear_scope("project/x")
         assert count == 2
 
     def test_stats_via_sdk(self, tmp_db):
-        sdk = AgentMemory(db_path=tmp_db)
+        sdk = OneMind(db_path=tmp_db)
         sdk.remember("Test fact", scope="test")
         stats = sdk.stats()
         assert stats["total"] == 1
@@ -154,7 +154,7 @@ class TestDaemonIntegration:
     def test_daemon_remember_and_recall(self):
         """Test daemon remember/recall with a real local daemon."""
         import requests
-        from agentmemory.daemon import MemoryDaemon
+        from one_mind.daemon import MemoryDaemon
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -217,7 +217,7 @@ class TestDaemonIntegration:
     def test_daemon_clear_scope(self):
         """Test daemon scope clearing."""
         import requests
-        from agentmemory.daemon import MemoryDaemon
+        from one_mind.daemon import MemoryDaemon
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:

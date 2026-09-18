@@ -1,16 +1,16 @@
-"""AgentMemory MCP server — expose memory to Claude Code, Cursor, and any MCP-compatible tool."""
+"""OneMind MCP server — expose memory to Claude Code, Cursor, and any MCP-compatible tool."""
 from __future__ import annotations
 
 import sys
 import json
 from typing import Any
 
-from .sdk import AgentMemory
+from .sdk import OneMind
 
 
 def main():
     """Run the MCP server on stdio."""
-    mem = AgentMemory()
+    mem = OneMind()
 
     # Signal ready
     sys.stdout.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")

@@ -1,4 +1,4 @@
-"""AgentMemory core — memory storage, retrieval, and lifecycle."""
+"""OneMind core — memory storage, retrieval, and lifecycle."""
 from __future__ import annotations
 
 import sqlite3

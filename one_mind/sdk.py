@@ -1,4 +1,4 @@
-"""AgentMemory SDK — Python client for the memory daemon."""
+"""OneMind SDK — Python client for the memory daemon."""
 from __future__ import annotations
 
 import os
@@ -15,18 +15,18 @@ from .store import Memory, MemoryStore
 console = Console()
 
 # Default daemon connection
-DEFAULT_HOST = os.environ.get("AGENTMEMORY_HOST", "127.0.0.1")
-DEFAULT_PORT = int(os.environ.get("AGENTMEMORY_PORT", "7777"))
-DEFAULT_DB = os.environ.get("AGENTMEMORY_DB", "~/.agentmemory/default.db")
+DEFAULT_HOST = os.environ.get("ONEMIND_HOST", "127.0.0.1")
+DEFAULT_PORT = int(os.environ.get("ONEMIND_PORT", "7777"))
+DEFAULT_DB = os.environ.get("ONEMIND_DB", "~/.one_mind/default.db")
 
 
-class AgentMemory:
-    """Main SDK class for interacting with AgentMemory.
+class OneMind:
+    """Main SDK class for interacting with OneMind.
 
     Usage:
-        from agentmemory import AgentMemory
+        from one_mind import OneMind
 
-        mem = AgentMemory()
+        mem = OneMind()
         mem.remember("Auth uses JWT with RS256", tags=["security", "auth"])
         results = mem.recall("authentication strategy")
     """
@@ -220,13 +220,13 @@ class AgentMemory:
 
 # ─── Convenience functions ───────────────────────────────────────────────────
 
-_default_memory: AgentMemory | None = None
+_default_memory: OneMind | None = None
 
 
-def _get_default() -> AgentMemory:
+def _get_default() -> OneMind:
     global _default_memory
     if _default_memory is None:
-        _default_memory = AgentMemory()
+        _default_memory = OneMind()
     return _default_memory
 
 

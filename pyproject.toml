@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agentmemory"
+name = "one_mind"
 version = "0.1.0"
 description = "Shared memory layer for AI agents. Remember across sessions, across tools, across time."
 readme = "README.md"
@@ -44,10 +44,10 @@ dev = [
 ]
 
 [project.scripts]
-agentmemory = "agentmemory.cli:main"
+one_mind = "one_mind.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["agentmemory*"]
+include = ["one_mind*"]
 exclude = ["tests*"]
 
 [tool.pytest.ini_options]
