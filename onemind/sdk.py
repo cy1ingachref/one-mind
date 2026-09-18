@@ -23,7 +23,7 @@ class OneMind:
 
         mem = OneMind()
         mem.remember("Auth uses JWT with RS256", tags=["security", "auth"])
-        results = mem.recall("authentication strategy")
+        results = mem.recall("JWT")
     """
 
     def __init__(
@@ -70,7 +70,12 @@ class OneMind:
 
         Returns:
             The stored Memory object
+
+        Raises:
+            ValueError: If content is empty
         """
+        if not content or not content.strip():
+            raise ValueError("content cannot be empty")
         memory = Memory(
             content=content,
             tags=tags or [],

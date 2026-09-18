@@ -89,7 +89,13 @@ class MemoryStore:
         self._conn.commit()
 
     def remember(self, memory: Memory) -> Memory:
-        """Store a new memory or update existing one (matched by id)."""
+        """Store a new memory or update existing one (matched by id).
+        
+        Raises:
+            ValueError: If content is empty
+        """
+        if not memory.content or not memory.content.strip():
+            raise ValueError("content cannot be empty")
         memory.updated_at = time.time()
         self._conn.execute("""
             INSERT OR REPLACE INTO memories

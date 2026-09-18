@@ -61,7 +61,7 @@ def recall(query: str, scope: str | None, tags: tuple[str, ...], limit: int, hos
     """Search memories.
 
     Example:
-        onemind recall "authentication"
+        onemind recall "JWT"
         onemind recall -s project/myapp --tags security
     """
     mem = OneMind(host=host, port=port)

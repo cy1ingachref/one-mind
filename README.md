@@ -74,7 +74,7 @@ The SDK auto-detects a running daemon. If none is running, it silently falls bac
 - **Scoped** — Isolate by project, user, agent, or global
 - **Taggable** — Categorize facts for easy retrieval
 - **TTL** — Auto-expire stale memories
-- **Daemon** — Run as a local server (127.0.0.1 only, no auth) for any tool to use
+- **Daemon** — Run as a local server (127.0.0.1 only, no auth — do not expose to network) for any tool to use
 - **MCP** — Built-in MCP server for Claude Code/Cursor integration
 - **Zero deps** — No vector DB, no API keys, no cloud
 

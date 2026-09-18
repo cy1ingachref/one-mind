@@ -29,6 +29,14 @@ class TestMemory:
         assert m.id
         assert len(m.id) == 16
 
+    def test_empty_content_rejected(self):
+        """Empty content should raise ValueError."""
+        store = MemoryStore(":memory:")
+        with pytest.raises(ValueError, match="cannot be empty"):
+            store.remember(Memory(content=""))
+        with pytest.raises(ValueError, match="cannot be empty"):
+            store.remember(Memory(content="   "))
+
     def test_memory_is_not_expired_by_default(self):
         m = Memory(content="test")
         assert not m.is_expired
