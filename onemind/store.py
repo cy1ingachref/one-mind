@@ -1,10 +1,13 @@
-"""Onemind core — memory storage, retrieval, and lifecycle."""
+"""OneMind core — memory storage, retrieval, and lifecycle."""
 from __future__ import annotations
 
 import sqlite3
 import time
 import uuid
+import re
+import math
 from typing import Any
+from collections import Counter
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 
@@ -12,7 +15,7 @@ from pathlib import Path
 
 @dataclass
 class Memory:
-    """A single remembered fact."""
+    """A single remembered fact with provenance."""
     id: str = ""
     content: str = ""
     tags: list[str] = field(default_factory=list)
@@ -54,10 +57,17 @@ class Memory:
         return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})
 
 
+# ─── Tokenizer ───────────────────────────────────────────────────────────────
+
+def tokenize(text: str) -> list[str]:
+    """Simple tokenizer: lowercase, split on non-alphanumeric."""
+    return re.findall(r'[a-z0-9]+', text.lower())
+
+
 # ─── Store ───────────────────────────────────────────────────────────────────
 
 class MemoryStore:
-    """SQLite-backed memory store with semantic search."""
+    """SQLite-backed memory store with BM25 retrieval and provenance."""
 
     def __init__(self, db_path: str | Path):
         self.db_path = Path(db_path)
@@ -85,6 +95,9 @@ class MemoryStore:
         """)
         self._conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_memories_updated ON memories(updated_at)
+        """)
+        self._conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_memories_agent ON memories(agent_id)
         """)
         self._conn.commit()
 
@@ -124,7 +137,7 @@ class MemoryStore:
         limit: int = 10,
         include_expired: bool = False,
     ) -> list[Memory]:
-        """Search memories with optional filtering."""
+        """Search memories with BM25 scoring and optional filtering."""
         # Build query dynamically
         conditions = []
         params: list[Any] = []
@@ -140,6 +153,7 @@ class MemoryStore:
                 conditions.append("tags LIKE ?")
                 params.append(f"%{tag}%")
         if query:
+            # Substring matching in SQL (broad recall, then score in Python)
             conditions.append("(content LIKE ? OR tags LIKE ?)")
             params.extend([f"%{query}%", f"%{query}%"])
 
@@ -147,7 +161,7 @@ class MemoryStore:
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY updated_at DESC LIMIT ?"
-        params.append(limit)
+        params.append(max(limit * 3, 50))  # Fetch more for scoring
 
         rows = self._conn.execute(sql, params).fetchall()
         memories = [Memory.from_dict(dict(row)) for row in rows]
@@ -156,32 +170,66 @@ class MemoryStore:
         if not include_expired:
             memories = [m for m in memories if not m.is_expired]
 
-        # Simple relevance scoring (exact match > substring > tag match)
-        for mem in memories:
-            mem.score = self._score_memory(mem, query)
+        # Score using BM25 if query provided
+        if query:
+            for mem in memories:
+                mem.score = self._bm25_score(mem, query)
+            # Re-sort by score
+            memories.sort(key=lambda m: m.score, reverse=True)
 
-        # Re-sort by score
-        memories.sort(key=lambda m: m.score, reverse=True)
-        return memories
+        # Apply limit
+        return memories[:limit]
 
-    def _score_memory(self, mem: Memory, query: str) -> float:
-        """Score relevance (higher = more relevant)."""
-        if not query:
+    def _bm25_score(self, mem: Memory, query: str) -> float:
+        """
+        BM25-inspired scoring for a memory against a query.
+        
+        This is a simplified BM25 implementation that doesn't require
+        pre-computed IDF statistics across the corpus. It uses:
+        - Term frequency (TF) with length normalization
+        - Exact substring match bonus
+        - Tag match bonus
+        """
+        q_tokens = tokenize(query)
+        c_tokens = tokenize(mem.content)
+        t_tokens = tokenize(" ".join(mem.tags))
+        
+        if not q_tokens:
             return 1.0
-        q = query.lower()
-        c = mem.content.lower()
-
-        if q == c:
-            return 3.0
-        if q in c:
-            return 2.0
-        # Partial word overlap
-        q_words = set(q.split())
-        c_words = set(c.split())
-        overlap = len(q_words & c_words)
-        if overlap > 0:
-            return 1.0 + (overlap / len(q_words))
-        return 0.5
+        
+        # Exact substring match bonus
+        q_lower = query.lower()
+        c_lower = mem.content.lower()
+        if q_lower == c_lower:
+            return 10.0
+        if q_lower in c_lower:
+            return 5.0
+        
+        # TF-based scoring
+        c_counter = Counter(c_tokens)
+        t_counter = Counter(t_tokens)
+        c_len = len(c_tokens) if c_tokens else 1
+        
+        # BM25 parameters
+        k1 = 1.5
+        b = 0.75
+        avg_len = 10  # Assumed average document length
+        
+        score = 0.0
+        for token in q_tokens:
+            # Content TF
+            tf = c_counter.get(token, 0)
+            if tf > 0:
+                # BM25 TF component with length normalization
+                tf_norm = (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * (c_len / avg_len)))
+                score += tf_norm
+            
+            # Tag TF (boosted)
+            tag_tf = t_counter.get(token, 0)
+            if tag_tf > 0:
+                score += tag_tf * 2.0  # Tag matches weighted higher
+        
+        return score
 
     def forget(self, memory_id: str) -> bool:
         """Delete a memory by id. Returns True if found and deleted."""
@@ -209,9 +257,22 @@ class MemoryStore:
         """Get store statistics."""
         total = self.count()
         scopes = {}
+        agents = {}
         for row in self._conn.execute("SELECT scope, COUNT(*) FROM memories GROUP BY scope"):
             scopes[row[0]] = row[1]
-        return {"total": total, "scopes": scopes}
+        for row in self._conn.execute("SELECT agent_id, COUNT(*) FROM memories GROUP BY agent_id"):
+            agents[row[0]] = row[1]
+        return {"total": total, "scopes": scopes, "agents": agents}
+
+    def gc(self) -> int:
+        """Garbage collect: remove all expired memories. Returns count removed."""
+        now = time.time()
+        cursor = self._conn.execute(
+            "DELETE FROM memories WHERE ttl_seconds > 0 AND (?) - updated_at > ttl_seconds",
+            (now,)
+        )
+        self._conn.commit()
+        return cursor.rowcount
 
     def close(self) -> None:
         """Close the database connection."""

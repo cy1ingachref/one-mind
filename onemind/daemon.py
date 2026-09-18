@@ -1,4 +1,7 @@
-"""OneMind daemon — lightweight local server for memory storage."""
+"""OneMind daemon — lightweight local server for memory storage.
+
+Threaded HTTP daemon enabling concurrent multi-agent access.
+"""
 from __future__ import annotations
 
 import json
@@ -19,10 +22,6 @@ class MemoryHTTPHandler(http.server.BaseHTTPRequestHandler):
     def _get_store(self) -> MemoryStore:
         """Create a new store for this request (thread-safe)."""
         return MemoryStore(self.db_path)
-
-    def _close_store(self, store: MemoryStore) -> None:
-        """Close a store after request handling."""
-        store.close()
 
     def log_message(self, format, *args):
         """Suppress default logging."""
@@ -96,6 +95,10 @@ class MemoryHTTPHandler(http.server.BaseHTTPRequestHandler):
                 )
                 store.remember(memory)
                 self._send_json({"status": "ok", "id": memory.id})
+            elif self.path == "/gc":
+                # Garbage collection: remove expired memories
+                count = store.gc()
+                self._send_json({"status": "ok", "cleaned": count})
             else:
                 self._send_error("Not found", 404)
         finally:
@@ -125,24 +128,26 @@ class MemoryHTTPHandler(http.server.BaseHTTPRequestHandler):
             store.close()
 
 
+class ThreadedHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
+    """Handle requests in a separate thread for concurrency."""
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 class MemoryDaemon:
-    """HTTP daemon for memory storage."""
+    """Threaded HTTP daemon for memory storage."""
 
     def __init__(self, host: str = "127.0.0.1", port: int = 7777, db_path: str | Path = "~/.onemind/default.db"):
         self.host = host
         self.port = port
         self.db_path = Path(db_path).expanduser()
-        self._server: socketserver.TCPServer | None = None
+        self._server: ThreadedHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
     def start(self, blocking: bool = False) -> None:
-        """Start the daemon."""
+        """Start the daemon (threaded for concurrent access)."""
         MemoryHTTPHandler.db_path = str(self.db_path)
-
-        class ReusableTCPServer(socketserver.TCPServer):
-            allow_reuse_address = True
-
-        self._server = ReusableTCPServer((self.host, self.port), MemoryHTTPHandler)
+        self._server = ThreadedHTTPServer((self.host, self.port), MemoryHTTPHandler)
 
         if blocking:
             self._server.serve_forever()

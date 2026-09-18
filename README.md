@@ -2,7 +2,7 @@
 
 **Shared memory layer for AI agents. Remember across sessions, across tools, across time.**
 
-[![Tests](https://img.shields.io/badge/tests-19%20passed-brightgreen)](https://github.com/cy1ingachref/one-mind)
+[![Tests](https://img.shields.io/badge/tests-40%20passed-brightgreen)](https://github.com/cy1ingachref/one-mind)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/cy1ingachref/one-mind/blob/main/LICENSE)
 
@@ -71,12 +71,14 @@ The SDK auto-detects a running daemon. If none is running, it silently falls bac
 
 ## Features
 
-- **Shared** — Multiple agents, one memory pool
+- **Shared** — Multiple agents, one memory pool (threaded daemon for concurrent access)
 - **Persistent** — SQLite-backed, survives restarts
 - **Scoped** — Isolate by project, user, agent, or global
 - **Taggable** — Categorize facts for easy retrieval
-- **TTL** — Auto-expire stale memories
-- **Daemon** — Run as a local server (127.0.0.1 only, no auth — do not expose to network) for any tool to use
+- **TTL** — Auto-expire stale memories, with manual GC
+- **Provenance** — Track who wrote what (agent_id) and query by source
+- **BM25 retrieval** — Smarter than simple substring matching
+- **Daemon** — Threaded local server (127.0.0.1 only, no auth) for any tool to use
 - **MCP** — Built-in MCP server for Claude Code/Cursor integration
 - **Zero deps** — No vector DB, no API keys, no cloud
 
@@ -183,11 +185,26 @@ onemind/
 
 ---
 
-## Known Limitations
+## Garbage Collection
 
-- **Single-threaded daemon**: The daemon processes one request at a time. Suitable for localhost use with few agents, but not for concurrent multi-agent production workloads.
+OneMind automatically filters expired memories from recall results. To permanently remove them:
+
+```bash
+# Via SDK
+from onemind import OneMind
+mem = OneMind()
+removed = mem.gc()
+print(f"Removed {removed} expired memories")
+
+# Via HTTP daemon
+curl -X POST http://127.0.0.1:7777/gc
+```
+
+---
+
 - **No daemon authentication**: Binds to 127.0.0.1 with no auth token. Do not expose to the network.
-- **Recall quality**: Uses word-overlap scoring (not embeddings). Good enough for factual lookup, not for semantic search at scale.
+- **Recall quality**: Uses BM25 scoring (not embeddings). Good enough for factual lookup, not for semantic search at scale.
+- **Threaded but not async**: The daemon handles requests in threads but doesn't use async I/O. Sufficient for local multi-agent use, but not optimized for hundreds of concurrent agents.
 
 ---
 

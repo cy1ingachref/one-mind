@@ -199,6 +199,22 @@ class OneMind:
 
         return self._store.clear_scope(scope)
 
+    def gc(self) -> int:
+        """Garbage collect: remove all expired memories."""
+        if self._use_daemon:
+            try:
+                resp = requests.post(
+                    f"{self.base_url}/gc",
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                return resp.json().get("cleaned", 0)
+            except Exception:
+                self._use_daemon = False
+                self._store = MemoryStore(self.db_path)
+
+        return self._store.gc()
+
     def stats(self) -> dict[str, Any]:
         """Get memory store statistics."""
         if self._use_daemon:

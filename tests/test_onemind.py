@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import os
-import io
 import json
 import time
 import tempfile
+import uuid
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -62,7 +61,6 @@ class TestMemory:
         store = MemoryStore(":memory:")
         m1 = store.remember(Memory(content="Auth uses JWT", scope="project/a"))
         m2 = store.remember(Memory(content="Auth uses JWT", scope="project/b"))
-        # IDs should differ (no silent overwrite)
         assert m1.id != m2.id
 
 
@@ -124,6 +122,95 @@ class TestMemoryStore:
             store.remember(Memory(content="   "))
 
 
+class TestBM25Scoring:
+    def test_bm25_exact_match_scores_highest(self, store):
+        store.remember(Memory(content="JWT authentication"))
+        store.remember(Memory(content="Something else entirely"))
+        results = store.recall("JWT authentication")
+        assert results[0].content == "JWT authentication"
+        assert results[0].score >= 10.0
+
+    def test_bm25_substring_match(self, store):
+        store.remember(Memory(content="Auth uses JWT with RS256"))
+        results = store.recall("JWT")
+        assert len(results) >= 1
+        assert results[0].score >= 5.0
+
+    def test_bm25_tag_boost(self, store):
+        store.remember(Memory(content="Some fact", tags=["authentication"]))
+        store.remember(Memory(content="Another fact", tags=["database"]))
+        results = store.recall("authentication")
+        assert len(results) >= 1
+        assert "authentication" in results[0].tags
+
+    def test_bm25_no_query_returns_all(self, store):
+        store.remember(Memory(content="Fact A"))
+        store.remember(Memory(content="Fact B"))
+        results = store.recall("")
+        assert len(results) >= 2
+
+    def test_bm25_sorted_by_score(self, store):
+        store.remember(Memory(content="JWT token validation for security"))
+        store.remember(Memory(content="Random unrelated content"))
+        store.remember(Memory(content="JWT authentication module"))
+        results = store.recall("JWT")
+        # Higher score should come first
+        for i in range(len(results) - 1):
+            assert results[i].score >= results[i + 1].score
+
+
+class TestProvenance:
+    def test_recall_by_agent_id(self, store):
+        store.remember(Memory(content="Claude fact", agent_id="claude"))
+        store.remember(Memory(content="GPT fact", agent_id="gpt"))
+        store.remember(Memory(content="Another Claude fact", agent_id="claude"))
+
+        results = store.recall(agent_id="claude")
+        assert len(results) == 2
+        assert all(r.agent_id == "claude" for r in results)
+
+    def test_stats_includes_agents(self, store):
+        store.remember(Memory(content="C1", agent_id="claude"))
+        store.remember(Memory(content="G1", agent_id="gpt"))
+        stats = store.stats()
+        assert "agents" in stats
+        assert stats["agents"].get("claude") == 1
+        assert stats["agents"].get("gpt") == 1
+
+
+class TestGarbageCollection:
+    def test_gc_removes_expired(self, store):
+        store.remember(Memory(content="Short lived", ttl_seconds=0.01))
+        store.remember(Memory(content="Long lived", ttl_seconds=3600))
+        store.remember(Memory(content="No TTL"))
+        
+        time.sleep(0.02)
+        
+        count = store.gc()
+        assert count == 1
+        assert store.count() == 2
+
+    def test_gc_no_expired_returns_zero(self, store):
+        store.remember(Memory(content="Long lived", ttl_seconds=3600))
+        store.remember(Memory(content="No TTL"))
+        
+        count = store.gc()
+        assert count == 0
+        assert store.count() == 2
+
+    def test_include_expired_parameter(self, store):
+        store.remember(Memory(content="Expired", ttl_seconds=0.01))
+        time.sleep(0.02)
+        
+        # Without include_expired
+        results = store.recall("Expired", include_expired=False)
+        assert len(results) == 0
+        
+        # With include_expired
+        results = store.recall("Expired", include_expired=True)
+        assert len(results) == 1
+
+
 class TestOneMindSDK:
     def test_remember_and_recall_direct(self, tmp_db):
         """Test SDK with direct store (no daemon)."""
@@ -169,6 +256,17 @@ class TestOneMindSDK:
             sdk.remember("")
         with pytest.raises(ValueError, match="cannot be empty"):
             sdk.remember("   ")
+
+    def test_gc_via_sdk(self, tmp_db):
+        """Test garbage collection via SDK."""
+        sdk = OneMind(db_path=tmp_db)
+        sdk.remember("Short lived", ttl_seconds=0.01)
+        sdk.remember("Long lived", ttl_seconds=3600)
+        
+        time.sleep(0.02)
+        count = sdk.gc()
+        assert count == 1
+        assert sdk.stats()["total"] == 1
 
 
 class TestDaemonIntegration:
@@ -289,13 +387,90 @@ class TestDaemonIntegration:
             finally:
                 daemon.stop()
 
+    def test_daemon_gc_endpoint(self):
+        """Test garbage collection via daemon."""
+        import requests
+        from onemind.daemon import MemoryDaemon
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "daemon_gc_test.db")
+            daemon = MemoryDaemon(port=7779, db_path=db_path)
+            daemon.start(blocking=False)
+            time.sleep(1)
+
+            try:
+                # Add short-lived and long-lived
+                requests.post(
+                    "http://127.0.0.1:7779/remember",
+                    json={"content": "Short lived", "ttl_seconds": 0.01},
+                    timeout=5,
+                )
+                requests.post(
+                    "http://127.0.0.1:7779/remember",
+                    json={"content": "Long lived", "ttl_seconds": 3600},
+                    timeout=5,
+                )
+
+                time.sleep(0.02)
+
+                # Trigger GC
+                resp = requests.post("http://127.0.0.1:7779/gc", timeout=5)
+                assert resp.status_code == 200
+                assert resp.json()["cleaned"] == 1
+
+            finally:
+                daemon.stop()
+
+    def test_daemon_threaded_concurrent_access(self):
+        """Test concurrent access to threaded daemon."""
+        import requests
+        from onemind.daemon import MemoryDaemon
+        import tempfile
+        import threading
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = os.path.join(tmpdir, "daemon_threaded_test.db")
+            daemon = MemoryDaemon(port=7780, db_path=db_path)
+            daemon.start(blocking=False)
+            time.sleep(1)
+
+            errors = []
+
+            def remember_fact(i):
+                try:
+                    resp = requests.post(
+                        "http://127.0.0.1:7780/remember",
+                        json={"content": f"Thread fact {i}", "agent_id": f"agent_{i}"},
+                        timeout=5,
+                    )
+                    assert resp.status_code == 200
+                except Exception as e:
+                    errors.append(e)
+
+            try:
+                threads = [threading.Thread(target=remember_fact, args=(i,)) for i in range(10)]
+                for t in threads:
+                    t.start()
+                for t in threads:
+                    t.join()
+
+                assert len(errors) == 0, f"Concurrent errors: {errors}"
+
+                # Verify all facts stored
+                resp = requests.get("http://127.0.0.1:7780/stats", timeout=5)
+                stats = resp.json()
+                assert stats["total"] == 10
+
+            finally:
+                daemon.stop()
+
 
 class TestMCPProtocol:
     """Test MCP server protocol handling."""
 
     def run_mcp(self, messages: list[dict]) -> list[dict]:
         """Run MCP server with given messages and return responses."""
-        from onemind.mcp.server import main
         import subprocess
         import sys
 
