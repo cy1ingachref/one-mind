@@ -24,8 +24,8 @@ pip install onemind
 # Store a fact
 onemind remember "Auth uses JWT with RS256" -t security -t auth
 
-# Recall it later (hours later, different session, different tool)
-onemind recall "authentication"
+# Recall it later (search by keyword or tag)
+onemind recall "JWT"
 
 # Or use the Python SDK
 ```
@@ -35,9 +35,12 @@ from onemind import remember, recall
 
 remember("Auth uses JWT with RS256", tags=["security", "auth"], scope="project/myapp")
 # ... hours later, different session, different tool
-results = recall("authentication")
-print(results[0].content)  # "Auth uses JWT with RS256"
+results = recall("JWT")  # keyword search
+for m in results:
+    print(f"[{m.score:.1f}] {m.content}")
 ```
+
+> **Note:** Search is **substring + word-overlap matching** (not semantic/embedding). Use keywords that appear in the stored content or tags for best results. For semantic search, consider embedding-based alternatives like ChromaDB or Pinecone.
 
 ---
 
@@ -85,7 +88,7 @@ The SDK auto-detects a running daemon. If none is running, it silently falls bac
 # Store
 onemind remember "Database uses PostgreSQL" -t database -t infra
 
-# Search
+# Search (substring matching)
 onemind recall "database"
 
 # Filter by scope
@@ -97,12 +100,14 @@ onemind forget abc123def456
 # Stats
 onemind stats
 
-# Start daemon
+# Start daemon (single-threaded, localhost only)
 onemind serve
 
 # List all
 onemind list
 ```
+
+> **CLI mode:** Commands use the daemon if running, otherwise fall back to direct SQLite access. Set `ONEMIND_DB` to specify the database path.
 
 ---
 
@@ -116,8 +121,8 @@ mem = OneMind()
 # Remember
 mem.remember("Auth uses JWT with RS256", tags=["security", "auth"], scope="project/myapp")
 
-# Recall
-results = mem.recall("authentication", limit=5)
+# Recall (substring matching)
+results = mem.recall("JWT", limit=5)
 for m in results:
     print(f"[{m.score:.1f}] {m.content}")
 
@@ -137,20 +142,7 @@ print(mem.stats())
 python -m onemind.mcp
 ```
 
-Then add to your MCP config (e.g., `~/.claude/settings.json`):
-
-```json
-{
-  "mcpServers": {
-    "onemind": {
-      "command": "python",
-      "args": ["-m", "onemind.mcp"]
-    }
-  }
-}
-```
-
-Then add to your MCP config (e.g., `~/.claude/settings.json`):
+Add to your MCP config (e.g., `~/.claude/settings.json`):
 
 ```json
 {
@@ -191,6 +183,10 @@ onemind/
 - **Single-threaded daemon**: The daemon processes one request at a time. Suitable for localhost use with few agents, but not for concurrent multi-agent production workloads.
 - **No daemon authentication**: Binds to 127.0.0.1 with no auth token. Do not expose to the network.
 - **Recall quality**: Uses word-overlap scoring (not embeddings). Good enough for factual lookup, not for semantic search at scale.
+
+---
+
+## Running Tests
 
 ```bash
 pip install -e ".[dev]"

@@ -17,6 +17,8 @@ def cli():
     """OneMind — shared memory layer for AI agents.
 
     Store and recall facts across sessions, across tools, across time.
+    CLI commands use the daemon if running, otherwise fall back to direct SQLite.
+    Set ONEMIND_DB to specify the database path (default: ~/.onemind/default.db).
     """
     pass
 
